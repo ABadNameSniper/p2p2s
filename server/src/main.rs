@@ -1,11 +1,5 @@
 use tokio_postgres::{NoTls, Error};
 use std::{
-    thread::{self, JoinHandle},
-    sync::{
-        mpsc,
-        Arc,
-        Mutex,
-    },
     fs, 
     net::{TcpListener, TcpStream}, 
     io::{BufReader, BufRead}
@@ -13,7 +7,7 @@ use std::{
 
 use server::tables::*;
 // use server::auth::*;
-use sha256::digest;
+
 
 #[tokio::main]
 async fn main() -> Result<(), Error> {
