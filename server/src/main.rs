@@ -1,63 +1,28 @@
-use tokio_postgres::{NoTls, Error};
 use std::{
     fs, 
-    net::{TcpListener, TcpStream}, 
-    io::{BufReader, BufRead}
+    error::Error, str::FromStr
 };
 
 use server::tables::*;
-// use server::auth::*;
 
+use sqlx::postgres as pg;
 
 #[tokio::main]
-async fn main() -> Result<(), Error> {
+async fn main() -> Result<(), Box<dyn Error>> {
+    let options = pg::PgConnectOptions::from_str(
+        &fs::read_to_string("postgres_url.txt").unwrap()
+    ).unwrap();
 
-    let query_string = fs::read_to_string("./query_string.sql").unwrap();
-    let config = fs::read_to_string("./tokio_postgres.conf").unwrap();
-    let server_address = fs::read_to_string("./server_address.txt").unwrap();
+    let pool = pg::PgPool::connect_with(options).await?;
 
-    // Connect to the database.
-    let (client, connection) =
-        tokio_postgres::connect(&config, NoTls).await?;
+    let mut user = User::get_one(&pool, 1).await?;
 
-    // The connection object performs the actual communication with the database,
-    // so spawn it off to run on its own.
-    tokio::spawn(async move {
-        if let Err(e) = connection.await {
-            eprintln!("connection error: {}", e);
-        }
-    });
+    println!("{:?}", user);
 
-    // Now we can execute a simple statement that just returns its parameter.
-    let rows = client
-        .query(&query_string, &[])
-        .await?;
+    user.push_id(&pool, "clique_ids", 3).await?;
+    user.push_id(&pool, "posessed_file_ids", 5).await?;
 
-    // println!("{:#?}", &rows);
-
-
-    let users: Vec<_> = rows.into_iter()
-        .map(|row| User::from(row))
-        .collect();
-
-    
-    println!("{:#?}", users);
-
-    
-
-    let listener = TcpListener::bind(&server_address).unwrap();
-
-    for stream in listener.incoming() {
-        handle_connection(stream.unwrap()).await;
-    }
+    println!("{:?}", User::get_one(&pool, user.id).await?);
 
     Ok(())
-}
-
-async fn handle_connection(mut stream: TcpStream) {
-    let buf_reader = BufReader::new(&mut stream);
-    
-    println!("{:#?}", &buf_reader);
-    println!("{:#?}", buf_reader.lines().next());
-
 }
